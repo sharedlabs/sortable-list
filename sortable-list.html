@@ -1,0 +1,204 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+
+<!--
+`sortable-list`
+
+
+@demo demo/index.html 
+-->
+
+<dom-module id="sortable-list">
+  <template>
+    <style>
+
+      :host {
+        display: block;
+        @apply(--layout-vertical);
+      }
+
+      :host ::content .clone {
+        -webkit-box-shadow: 0 2px 10px rgba(0,0,0,.2);
+        box-shadow: 0 2px 10px rgba(0,0,0,.2);
+        pointer-events: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1;
+      }
+
+      #container {
+        position: relative;
+        @apply(--layout-flex);
+        height: 100%;
+        width: 100%;
+      }
+
+    </style>
+
+    <div id="container" on-track="_onTrack">
+      <content id="content"></content>
+    </div>
+
+  </template>
+</dom-module>
+
+<script>
+(function() {
+  'use strict';
+
+  Polymer({
+
+    is: 'sortable-list',
+
+    properties: {
+
+      disabled: {
+        type: Boolean,
+        value: false
+      },
+
+      draggingElement: {
+        type: Object,
+        readOnly: true
+      },
+
+      _draggingElementRect: Object,
+
+      _rects: Object
+
+    },
+
+    _onTrack(event) {
+      if (!this.disabled) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const target = this._getTarget(event);
+
+        Object.defineProperty(event, 'target', {
+          get: () => target
+        });
+
+        switch (event.detail.state) {
+          case 'start': this._trackStart(event); break;
+          case 'track': this._track(event); break;
+          case 'end': this._trackEnd(event); break;
+        }
+      }
+    },
+
+    // set aria-grabbed 
+    _trackStart(event) {
+      const draggingElement = event.target;
+      const elements = this.getContentChildren('#content');
+
+      this._trackStartDetail = event.detail;
+      this._draggingElementRect = draggingElement.getBoundingClientRect();
+      this._setDraggingElement(draggingElement);
+
+      // Save rects
+      const rects = new Map();
+      for (let i = 0; i < elements.length; i++) {
+        if (elements[i].tagName !== 'TEMPLATE') {
+          const rect = elements[i].getBoundingClientRect();
+          rects.set(elements[i], rect);
+        }
+      }
+      this._rects = rects;      
+
+      // Create Clone
+      this._clone = draggingElement.cloneNode(true);
+      this._clone.classList.add('clone');
+      this._clone.style.width = this._draggingElementRect.width + 'px';
+      this._translateClone(this._draggingElementRect.left, this._draggingElementRect.top);
+
+      // Hide draggingElement
+      draggingElement.style.visibility = 'hidden';
+
+      Polymer.dom(this).appendChild(this._clone);
+    },
+
+    _track(event) {
+      const x = this._draggingElementRect.left + (event.detail.x - this._trackStartDetail.x);
+      const y = this._draggingElementRect.top + (event.detail.y - this._trackStartDetail.y);
+
+      this._translateClone(x, y);
+
+      const hoverElement = this._elementWithinBounds(event.detail);
+
+      if (hoverElement && this.draggingElement !== hoverElement) {
+        const elements = this.getContentChildren('#content');
+        // todo: remove this
+        elements.pop();elements.pop();
+
+        const hoverElementIndex = elements.indexOf(hoverElement);
+        const draggingElementIndex = elements.indexOf(this.draggingElement);
+
+        if (draggingElementIndex > hoverElementIndex) {
+          this.insertBefore(this.draggingElement, hoverElement);
+        } else {
+          this.insertBefore(this.draggingElement, hoverElement.nextSibling);
+        }
+        const rects = new Map();
+        for (let i = 0; i < elements.length; i++) {
+          if (elements[i].tagName !== 'TEMPLATE') {
+            const rect = elements[i].getBoundingClientRect();
+            rects.set(elements[i], rect);
+          }
+        }
+        this._rects = rects; 
+      }
+    },
+
+    _trackEnd(event) {
+      if (this.draggingElement) {
+        this.draggingElement.style.visibility = '';
+        this._rects = null;
+        this._clone.remove();
+        this._clone = null;
+        this._draggingElementRect = null;
+        this._trackStartDetail = null;
+        this._setDraggingElement(null);
+
+        this.fire('did-sort-list');
+      }
+    },
+
+    _translateClone(x, y) {
+      if (this._clone) {
+        this.translate3d(`${x}px`, `${y}px`, '1px', this._clone);
+      }
+    },
+
+    _elementWithinBounds({x, y}) {
+      let match = null;
+
+      this._rects.forEach((rect, item) => {
+        if (x >=rect.left && x <= rect.left + rect.width
+          && y >= rect.top && y <= rect.top + rect.height) {
+            match = item;
+          }
+      });
+
+      return match;
+    },    
+
+    _getTarget(event) {
+      const childs = this.getContentChildren('#content');
+      let target;
+
+      for (let i = 0; i < childs.length; i++) {
+        if (event.path.indexOf(childs[i]) > -1) {
+          target = childs[i];
+          break;
+        }
+      }
+
+      return target;
+    }
+
+  });
+
+}());
+</script>

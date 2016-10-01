@@ -1,0 +1,32 @@
+<!doctype html>
+
+<html>
+  <head>
+    <title>sortable-list test</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="../../web-component-tester/browser.js"></script>
+
+    <link rel="import" href="../sortable-list.html">
+  </head>
+  <body>
+
+    <test-fixture id="basic">
+      <template>
+        <sortable-list></sortable-list>
+      </template>
+    </test-fixture>
+
+    <script>
+      suite('sortable-list', function() {
+
+        test('instantiating the element works', function() {
+          var element = fixture('basic');
+          assert.equal(element.is, 'sortable-list');
+        });
+
+      });
+    </script>
+  </body>
+</html>
