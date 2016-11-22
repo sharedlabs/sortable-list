@@ -1,5 +1,5 @@
 <link rel="import" href="../polymer/polymer.html">
-<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+
 
 <!--
 `sortable-list`
@@ -11,34 +11,31 @@
 <dom-module id="sortable-list">
   <template>
     <style>
-
       :host {
         display: block;
-        @apply(--layout-vertical);
       }
 
-      :host ::content .clone {
+      ::content  * {
+        user-drag: none; 
+        user-select: none;
+        -moz-user-select: none;
+        -webkit-user-drag: none;
+        -webkit-user-select: none;
+        -ms-user-select: none;        
+      }
+
+      ::content .item-clone {
         -webkit-box-shadow: 0 2px 10px rgba(0,0,0,.2);
         box-shadow: 0 2px 10px rgba(0,0,0,.2);
+        left: 0;
         pointer-events: none;
         position: fixed;
         top: 0;
-        left: 0;
         z-index: 1;
       }
-
-      #container {
-        position: relative;
-        @apply(--layout-flex);
-        height: 100%;
-        width: 100%;
-      }
-
     </style>
 
-    <div id="container" on-track="_onTrack">
-      <content id="content"></content>
-    </div>
+    <content></content>
 
   </template>
 </dom-module>
@@ -53,125 +50,165 @@
 
     properties: {
 
-      disabled: {
-        type: Boolean,
-        value: false
-      },
+      /**
+       * This is a CSS selector string. If this is set, only items that match the CSS selector
+       * are sortable.
+       */
+      selectable: String,
 
-      draggingElement: {
-        type: Object,
+      /**
+       * The list of sortable items.
+       */      
+      items: {
+        type: Array,
         readOnly: true
       },
 
-      _draggingElementRect: Object,
+      /**
+       * Returns true when an item is being drag.
+       */
+      dragging: {
+        type: Boolean,
+        reflectToAttribute: true,
+        readOnly: true,
+        value: false
+      },
 
-      _rects: Object
+      /**
+       * Whether the sort is possible.
+       */
+      disabled: {
+        type: Boolean,
+        reflectToAttribute: true,
+        value: false
+      },
 
+    },
+
+    listeners: {
+      'track': '_onTrack'
+    },
+
+    attached() {
+      this._observer = this._observeItems(this);
+      this._updateItems();
+    },
+
+    detached: function() {
+      if (this._observer) {
+        Polymer.dom(this).unobserveNodes(this._observer);
+      }
     },
 
     _onTrack(event) {
-      if (!this.disabled) {
-        event.preventDefault();
-        event.stopPropagation();
+      if (this.disabled) {
+        return;
+      }
 
-        const target = this._getTarget(event);
-
-        Object.defineProperty(event, 'target', {
-          get: () => target
-        });
-
-        switch (event.detail.state) {
-          case 'start': this._trackStart(event); break;
-          case 'track': this._track(event); break;
-          case 'end': this._trackEnd(event); break;
+      let target = event.target;
+      while(target && target !== this) {
+        if (this.items.indexOf(target) >= 0) {
+          break;
         }
+        target = target.parentNode;
+      }
+      
+      Object.defineProperty(event, 'target', {
+        get: _ => target
+      });
+
+      switch (event.detail.state) {
+        case 'start': this._trackStart(event); break;
+        case 'track': this._track(event); break;
+        case 'end': this._trackEnd(event); break;
       }
     },
 
-    // set aria-grabbed 
     _trackStart(event) {
-      const draggingElement = event.target;
-      const elements = this.getContentChildren('#content');
+      // Cache drag details
+      this._startX = event.detail.x;
+      this._startY = event.detail.y;
+      this._target = event.target;
+      this._targetRect = event.target.getBoundingClientRect();
+      this._updateItemsRects();
 
-      this._trackStartDetail = event.detail;
-      this._draggingElementRect = draggingElement.getBoundingClientRect();
-      this._setDraggingElement(draggingElement);
+      // Create clone
+      this._clone = this._target.cloneNode(true);
+      this._clone.classList.add('item-clone');
+      this._clone.style.width = this._targetRect.width + 'px';
+      this.translate3d(`${this._targetRect.left}px`, `${this._targetRect.top}px`, '1px', this._clone);
 
-      // Save rects
-      const rects = new Map();
-      for (let i = 0; i < elements.length; i++) {
-        if (elements[i].tagName !== 'TEMPLATE') {
-          const rect = elements[i].getBoundingClientRect();
-          rects.set(elements[i], rect);
-        }
-      }
-      this._rects = rects;      
+      // Hide target
+      this._target.style.opacity = 0;
 
-      // Create Clone
-      this._clone = draggingElement.cloneNode(true);
-      this._clone.classList.add('clone');
-      this._clone.style.width = this._draggingElementRect.width + 'px';
-      this._translateClone(this._draggingElementRect.left, this._draggingElementRect.top);
-
-      // Hide draggingElement
-      draggingElement.style.visibility = 'hidden';
-
+      // Append clone
       Polymer.dom(this).appendChild(this._clone);
+      this._setDragging(true);
     },
 
     _track(event) {
-      const x = this._draggingElementRect.left + (event.detail.x - this._trackStartDetail.x);
-      const y = this._draggingElementRect.top + (event.detail.y - this._trackStartDetail.y);
+      const x = this._targetRect.left + event.detail.x - this._startX;
+      const y = this._targetRect.top + event.detail.y - this._startY;
 
-      this._translateClone(x, y);
+      this.translate3d(`${x}px`, `${y}px`, '1px', this._clone);
 
-      const hoverElement = this._elementWithinBounds(event.detail);
+      const overEl = this._itemWithinBounds(event.detail);
 
-      if (hoverElement && this.draggingElement !== hoverElement) {
-        const elements = this.getContentChildren('#content');
-        // todo: remove this
-        elements.pop();elements.pop();
+      if (overEl && this._target !== overEl) {
+        const overElIndex = this.items.indexOf(overEl);
+        const targetIndex = this.items.indexOf(this._target);
 
-        const hoverElementIndex = elements.indexOf(hoverElement);
-        const draggingElementIndex = elements.indexOf(this.draggingElement);
-
-        if (draggingElementIndex > hoverElementIndex) {
-          this.insertBefore(this.draggingElement, hoverElement);
+        if (targetIndex > overElIndex) {
+          this.insertBefore(this._target, overEl);
         } else {
-          this.insertBefore(this.draggingElement, hoverElement.nextSibling);
+          this.insertBefore(this._target, overEl.nextSibling);
         }
-        const rects = new Map();
-        for (let i = 0; i < elements.length; i++) {
-          if (elements[i].tagName !== 'TEMPLATE') {
-            const rect = elements[i].getBoundingClientRect();
-            rects.set(elements[i], rect);
-          }
-        }
-        this._rects = rects; 
-      }
+        this._updateItemsRects();
+      } 
     },
 
     _trackEnd(event) {
-      if (this.draggingElement) {
-        this.draggingElement.style.visibility = '';
-        this._rects = null;
-        this._clone.remove();
-        this._clone = null;
-        this._draggingElementRect = null;
-        this._trackStartDetail = null;
-        this._setDraggingElement(null);
+      this._target.style.opacity = '';
+      this._targetRect = null;
+      this._clone.remove();
+      this._clone = null;
+      this._rects = null;
+      this._startX = null;
+      this._startY = null;
+      this._setDragging(false);
 
-        this.fire('did-sort-list');
-      }
+      this.fire('sort-list');
     },
 
-    _translateClone(x, y) {
-      if (this._clone) {
-        this.translate3d(`${x}px`, `${y}px`, '1px', this._clone);
-      }
+    /**
+     * Observer items under the given node.
+     *
+     * @param {!HTMLElement} node
+     */
+    _observeItems: function(node) {
+      return Polymer.dom(node).observeNodes(mutation => {
+        this._updateItems();
+      });
     },
 
-    _elementWithinBounds({x, y}) {
+    _updateItems: function() {
+      let nodes = Polymer.dom(this).queryDistributedElements(this.selectable || '*');
+      nodes = nodes.filter(node => {
+        return node.localName !== 'template' && !node.matches('.item-clone');
+      });
+      this._setItems(nodes);
+    },
+
+    _updateItemsRects: function() {
+      const rects = new Map();
+      for (let i = 0; i < this.items.length; i++) {
+        const rect = this.items[i].getBoundingClientRect();
+        rects.set(this.items[i], rect);
+      }
+      this._rects = rects;
+    },
+
+    _itemWithinBounds({x,y}) {
       let match = null;
 
       this._rects.forEach((rect, item) => {
@@ -182,20 +219,6 @@
       });
 
       return match;
-    },    
-
-    _getTarget(event) {
-      const childs = this.getContentChildren('#content');
-      let target;
-
-      for (let i = 0; i < childs.length; i++) {
-        if (event.path.indexOf(childs[i]) > -1) {
-          target = childs[i];
-          break;
-        }
-      }
-
-      return target;
     }
 
   });
