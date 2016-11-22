@@ -30,7 +30,7 @@
         cursor: -webkit-grabbing;
       }
 
-      ::content .item-clone {
+      ::content .drag-item {
         -webkit-box-shadow: 0 2px 10px rgba(0,0,0,.2);
         box-shadow: 0 2px 10px rgba(0,0,0,.2);
         left: 0;
@@ -38,6 +38,10 @@
         position: fixed !important;
         top: 0;
         z-index: 1;
+      }
+
+      ::content .clone-item {
+        opacity: 0;
       }
     </style>
 
@@ -87,12 +91,6 @@
         type: Boolean,
         reflectToAttribute: true,
         value: false
-      },
-
-      // TODO: allow horizontal/vertical/all sorting
-      sortDirection: {
-        type: String,
-        value: 'all'
       }
 
     },
@@ -113,28 +111,31 @@
     },
 
     _onTrack(event) {
-      if (this.disabled || this._updating) {
+      if (this.disabled) {
         return;
       }
 
-      let t = event.target;
-      let target;
-      while(t && t !== this) {
-        if (this.items.indexOf(t) >= 0) {
-          target = t;
-          break;
-        }
-        t = t.parentNode;
-      }
-
+      const target = this._getItemFromEvent(event);
+      let node = event.target;
       if (!target) {
         return;
       }
-      
+
       Object.defineProperty(event, 'target', {
         get: _ => target
       });
 
+      const customEvent = this.fire('sortable-list-track', {
+        trackEvent: event
+      }, {
+        bubbles: true,
+        cancelable: true
+      });
+
+      if (customEvent.defaultPrevented) {
+        return;
+      }
+    
       switch (event.detail.state) {
         case 'start': this._trackStart(event); break;
         case 'track': this._track(event); break;
@@ -150,17 +151,15 @@
       this._targetRect = event.target.getBoundingClientRect();
       this._updateItemsRects();
 
-      // Create clone
+      // Place clone at target position
       this._clone = this._target.cloneNode(true);
-      this._clone.classList.add('item-clone');
-      this._clone.style.width = this._targetRect.width + 'px';
-      this.translate3d(`${this._targetRect.left}px`, `${this._targetRect.top}px`, '1px', this._clone);
+      this._clone.classList.add('clone-item');
+      Polymer.dom(this).insertBefore(this._clone, this._target);
 
-      // Hide target
-      this._target.style.opacity = 0;
+      // Move target
+      this._target.classList.add('drag-item');
+      this.translate3d(`${this._targetRect.left}px`, `${this._targetRect.top}px`, '1px', this._target);
 
-      // Append clone
-      Polymer.dom(this).appendChild(this._clone);
       this._setDragging(true);
     },
 
@@ -168,33 +167,33 @@
       const x = this._targetRect.left + event.detail.x - this._startX;
       const y = this._targetRect.top + event.detail.y - this._startY;
 
-      this.translate3d(`${x}px`, `${y}px`, '1px', this._clone);
+      this.translate3d(`${x}px`, `${y}px`, '1px', this._target);
 
       const overItem = this._itemWithinBounds(event.detail);
 
-      if (overItem && this._target !== overItem) {
+      if (overItem) {
         const overItemIndex = this.items.indexOf(overItem);
         const targetIndex = this.items.indexOf(this._target);
 
+
         if (targetIndex > overItemIndex) {
-          Polymer.dom(this).insertBefore(this._target, overItem);
+          Polymer.dom(this).insertBefore(this._clone, overItem);
         } else {
-          Polymer.dom(this).insertBefore(this._target, overItem.nextSibling);
+          Polymer.dom(this).insertBefore(this._clone, overItem.nextSibling);
         }
-        this._updating = true;
-        setTimeout(_ => {
-          this._updating = false;
-          this._updateItemsRects();
-        });
+
+        this._updateItemsRects();
       } 
     },
 
     _trackEnd(event) {
-      this._target.style.opacity = '';
-      this._target = null;
-      this._targetRect = null;
+      Polymer.dom(this).insertBefore(this._target, this._clone);
       Polymer.dom(this._clone.parentNode).removeChild(this._clone);
       this._clone = null;
+      this._target.style.transform = '';
+      this._target.classList.remove('drag-item');
+      this._target = null;
+      this._targetRect = null;
       this._rects = null;
       this._startX = null;
       this._startY = null;
@@ -235,6 +234,9 @@
       let match = null;
 
       this._rects.forEach((rect, item) => {
+        if (item.classList.contains('drag-item')) {
+          return;
+        }
         if (x >=rect.left && x <= rect.left + rect.width
           && y >= rect.top && y <= rect.top + rect.height) {
             match = item;
@@ -242,6 +244,21 @@
       });
 
       return match;
+    },
+
+    _getItemFromEvent(event) {
+      let node = event.target;
+      let target;
+
+      while(node && node !== this) {
+        if (this.items.indexOf(node) >= 0) {
+          target = node;
+          break;
+        }
+        node = node.parentNode;
+      }
+
+      return target;
     }
 
   });
