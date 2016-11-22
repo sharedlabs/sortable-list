@@ -71,6 +71,7 @@
        */      
       items: {
         type: Array,
+        notify: true,
         readOnly: true
       },
 
@@ -110,12 +111,27 @@
       }
     },
 
+    getItemFromEvent(event) {
+      let node = event.target;
+      let target;
+
+      while(node && node !== this) {
+        if (this.items.indexOf(node) >= 0) {
+          target = node;
+          break;
+        }
+        node = node.parentNode;
+      }
+
+      return target;
+    },
+
     _onTrack(event) {
       if (this.disabled) {
         return;
       }
 
-      const target = this._getItemFromEvent(event);
+      const target = this.getItemFromEvent(event);
       let node = event.target;
       if (!target) {
         return;
@@ -244,21 +260,6 @@
       });
 
       return match;
-    },
-
-    _getItemFromEvent(event) {
-      let node = event.target;
-      let target;
-
-      while(node && node !== this) {
-        if (this.items.indexOf(node) >= 0) {
-          target = node;
-          break;
-        }
-        node = node.parentNode;
-      }
-
-      return target;
     }
 
   });
