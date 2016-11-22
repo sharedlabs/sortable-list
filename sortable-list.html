@@ -83,6 +83,12 @@
         value: false
       },
 
+      // TODO: allow horizontal/vertical/all sorting
+      sortDirection: {
+        type: String,
+        value: 'all'
+      }
+
     },
 
     listeners: {
@@ -152,16 +158,16 @@
 
       this.translate3d(`${x}px`, `${y}px`, '1px', this._clone);
 
-      const overEl = this._itemWithinBounds(event.detail);
+      const overItem = this._itemWithinBounds(event.detail);
 
-      if (overEl && this._target !== overEl) {
-        const overElIndex = this.items.indexOf(overEl);
+      if (overItem && this._target !== overItem) {
+        const overItemIndex = this.items.indexOf(overItem);
         const targetIndex = this.items.indexOf(this._target);
 
-        if (targetIndex > overElIndex) {
-          this.insertBefore(this._target, overEl);
+        if (targetIndex > overItemIndex) {
+          this.insertBefore(this._target, overItem);
         } else {
-          this.insertBefore(this._target, overEl.nextSibling);
+          this.insertBefore(this._target, overItem.nextSibling);
         }
         this._updateItemsRects();
       } 
