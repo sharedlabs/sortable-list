@@ -24,6 +24,19 @@
         -ms-user-select: none;        
       }
 
+      :content > * {
+        cursor: move; /* fallback if grab cursor is unsupported */
+        cursor: grab;
+        cursor: -moz-grab;
+        cursor: -webkit-grab;
+      }
+
+      :host([dragging]) { 
+        cursor: grabbing;
+        cursor: -moz-grabbing;
+        cursor: -webkit-grabbing;
+      }
+
       ::content .item-clone {
         -webkit-box-shadow: 0 2px 10px rgba(0,0,0,.2);
         box-shadow: 0 2px 10px rgba(0,0,0,.2);
@@ -111,12 +124,18 @@
         return;
       }
 
-      let target = event.target;
-      while(target && target !== this) {
-        if (this.items.indexOf(target) >= 0) {
+      let t = event.target;
+      let target;
+      while(t && t !== this) {
+        if (this.items.indexOf(t) >= 0) {
+          target = t;
           break;
         }
-        target = target.parentNode;
+        t = t.parentNode;
+      }
+
+      if (!target) {
+        return;
       }
       
       Object.defineProperty(event, 'target', {
@@ -165,18 +184,22 @@
         const targetIndex = this.items.indexOf(this._target);
 
         if (targetIndex > overItemIndex) {
-          this.insertBefore(this._target, overItem);
+          Polymer.dom(this).insertBefore(this._target, overItem);
         } else {
-          this.insertBefore(this._target, overItem.nextSibling);
+          Polymer.dom(this).insertBefore(this._target, overItem.nextSibling);
         }
-        this._updateItemsRects();
+
+        setTimeout(_ => {
+          this._updateItemsRects();
+        });
       } 
     },
 
     _trackEnd(event) {
       this._target.style.opacity = '';
+      this._target = null;
       this._targetRect = null;
-      this._clone.remove();
+      Polymer.dom(this._clone.parentNode).removeChild(this._clone);
       this._clone = null;
       this._rects = null;
       this._startX = null;
