@@ -8,7 +8,7 @@
     <link rel="import" href="../sortable-list.html">
 
     <style>
-      sortable-list > div {
+      .sortable-list__item {
         background: #ddd;
         display: inline-block;
         float: left;
@@ -17,17 +17,11 @@
         text-align: center;
         vertical-align: top;
         width: 150px;
-        user-select: none;
-        -moz-user-select: none;
-        -khtml-user-select: none;
-        -webkit-user-select: none;
-        -o-user-select: none;
       }
 
       img {
-        width: auto;
         height: 100%;
-        opacity: 0.2;
+        width: auto;
       }
     </style>
   </head>
@@ -36,7 +30,9 @@
     <template is="dom-bind" id="app">
       <sortable-list>
         <template is="dom-repeat" items="[[items]]">
-          <div><img src$="{{item}}"/></div>
+          <div class="sortable-list__item">
+            <img src$="[[item]]"/>
+          </div>
         </template>
       </sortable-list>
     </template>
