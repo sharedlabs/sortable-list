@@ -33,7 +33,6 @@
      ::content .item--transform {
         left: 0;
         margin: 0 !important; 
-        pointer-events: none !important;
         position: fixed !important;
         top: 0;
         will-change: transform;
@@ -41,12 +40,16 @@
         transition: transform 0.2s cubic-bezier(0.333, 0, 0, 1);
       }
 
+      ::content .item--no-transition {
+        transition: none !important;
+      }
+
       ::content .item--dragging {
         filter: brightness(1.1);
         -webkit-box-shadow: 0 2px 10px rgba(0,0,0,.2);
         box-shadow: 0 2px 10px rgba(0,0,0,.2);
         z-index: 2;
-        transition: none;
+
       }
     </style>
 
@@ -104,6 +107,7 @@
 
     listeners: {
       'track': '_onTrack',
+      'dragstart': '_onDragStart',
       'transitionend': '_transitionEnd'
     },
 
@@ -118,21 +122,6 @@
       }
     },
 
-    _getItemFromEvent(event) {
-      let node = event.target;
-      let target;
-
-      while(node && node !== this) {
-        if (this.items.indexOf(node) >= 0) {
-          target = node;
-          break;
-        }
-        node = node.parentNode;
-      }
-
-      return target;
-    },
-
     _onTrack(event) {
       switch(event.detail.state) {
         case 'start': this._trackStart(event); break;
@@ -142,11 +131,21 @@
     },
 
     _trackStart(event) {
+      if (this.disabled) {
+        return;
+      }
+
+      this._target = this._getItemFromEvent(event);
+
+      if (!this._target) {
+        return;
+      }
+
       event.stopPropagation();
       this._rects = this._getItemsRects();
-      this._target = this._getItemFromEvent(event);
       this._targetRect = this._rects[this.items.indexOf(this._target)];
       this._target.classList.add('item--dragging');
+      this._target.classList.add('item--no-transition');
 
       if ('vibrate' in navigator) {
         navigator.vibrate(30);
@@ -171,7 +170,7 @@
     },
 
     _track(event) {
-      if (this.disabled) {
+      if (!this.dragging) {
         return;
       }
 
@@ -199,11 +198,15 @@
     },
 
     _trackEnd(event) {
+      if (!this.dragging) {
+        return;
+      }
+
       const rect = this._rects[this.items.indexOf(this._target)];
-      this._target.classList.remove('item--dragging');
+      this._target.classList.remove('item--no-transition');
       requestAnimationFrame(_ => {
-        this.translate3d(rect.left + 'px', rect.top + 'px', '1px', this._target);
         this._setDragging(false);
+        this.translate3d(rect.left + 'px', rect.top + 'px', '1px', this._target);
       });
     },
 
@@ -218,6 +221,7 @@
 
       Polymer.dom(this).appendChild(fragment);
       this.style.height = '';
+      this._target.classList.remove('item--dragging');
       this._rects = null;
       this._target = null;
       this._targetRect = null;
@@ -226,8 +230,14 @@
     },
 
     _transitionEnd(event) {
-      if (!this.dragging) {
+      if (!this.dragging && this._target) {
         this._finishTrackEnd();
+      }
+    },
+
+    _onDragStart(event) {
+      if (event.target !== this) {
+        event.preventDefault();
       }
     },
 
@@ -281,6 +291,21 @@
           }
       });
       return match;
+    },
+
+    _getItemFromEvent(event) {
+      let node = event.target;
+      let target;
+
+      while(node && node !== this) {
+        if (this.items.indexOf(node) >= 0) {
+          target = node;
+          break;
+        }
+        node = node.parentNode;
+      }
+
+      return target;
     }
 
   });
