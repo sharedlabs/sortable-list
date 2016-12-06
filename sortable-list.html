@@ -11,7 +11,7 @@
   <template>
     <style>
       :host {
-        display: block;
+        display: inline-block;
       }
 
       ::content * {
@@ -69,7 +69,7 @@
        * This is a CSS selector string. If this is set, only items that match the CSS selector
        * are sortable.
        */
-      selectable: String,
+      sortable: String,
 
       /**
        * The list of sortable items.
@@ -118,7 +118,7 @@
       }
     },
 
-    getItemFromEvent(event) {
+    _getItemFromEvent(event) {
       let node = event.target;
       let target;
 
@@ -144,13 +144,15 @@
     _trackStart(event) {
       event.stopPropagation();
       this._rects = this._getItemsRects();
-      this._target = this.getItemFromEvent(event);
+      this._target = this._getItemFromEvent(event);
       this._targetRect = this._rects[this.items.indexOf(this._target)];
       this._target.classList.add('item--dragging');
 
       if ('vibrate' in navigator) {
         navigator.vibrate(30);
       }
+      
+      this.style.height = this.getBoundingClientRect().height + 'px';
 
       for(let i = 0; i < this.items.length; i++) {
         const item = this.items[i];
@@ -215,7 +217,7 @@
       });
 
       Polymer.dom(this).appendChild(fragment);
-
+      this.style.height = '';
       this._rects = null;
       this._target = null;
       this._targetRect = null;
@@ -261,7 +263,7 @@
 
     _updateItems: function() {
       if (!this.dragging) {
-        let nodes = Polymer.dom(this).queryDistributedElements(this.selectable || '*');
+        let nodes = Polymer.dom(this).queryDistributedElements(this.sortable || '*');
         nodes = nodes.filter(node => {
           return node.localName !== 'template';
         });
