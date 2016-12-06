@@ -8,7 +8,7 @@
     <link rel="import" href="../sortable-list.html">
 
     <style>
-      .sortable-list__item {
+      sortable-list div {
         background: #ddd;
         display: inline-block;
         float: left;
@@ -19,7 +19,7 @@
         width: 150px;
       }
 
-      img {
+      sortable-list div img {
         height: 100%;
         width: auto;
       }
@@ -30,7 +30,7 @@
     <template is="dom-bind" id="app">
       <sortable-list>
         <template is="dom-repeat" items="[[items]]">
-          <div class="sortable-list__item">
+          <div>
             <img src$="[[item]]"/>
           </div>
         </template>
@@ -52,7 +52,7 @@
         "https://cdn2.iconfinder.com/data/icons/cutecritters/t9froggy_trans.png",
         "https://cdn2.iconfinder.com/data/icons/cutecritters/t9ducky_trans.png",
         "https://cdn2.iconfinder.com/data/icons/cutecritters/t9batty_trans.png",
-        "https://cdn2.iconfinder.com/data/icons/cutecritters/t9penguino_trans.png"        
+        "https://cdn2.iconfinder.com/data/icons/cutecritters/t9penguino_trans.png" 
       ];
     </script>
 

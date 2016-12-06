@@ -30,19 +30,23 @@
         cursor: -webkit-grabbing;
       }
 
-      ::content .drag-item {
-        -webkit-box-shadow: 0 2px 10px rgba(0,0,0,.2);
-        box-shadow: 0 2px 10px rgba(0,0,0,.2);
+     ::content .item--transform {
         left: 0;
         margin: 0 !important; 
         pointer-events: none !important;
         position: fixed !important;
         top: 0;
+        will-change: transform;
         z-index: 1;
+        transition: transform 0.2s cubic-bezier(0.333, 0, 0, 1);
       }
 
-      ::content .clone-item {
-        opacity: 0;
+      ::content .item--dragging {
+        filter: brightness(1.1);
+        -webkit-box-shadow: 0 2px 10px rgba(0,0,0,.2);
+        box-shadow: 0 2px 10px rgba(0,0,0,.2);
+        z-index: 2;
+        transition: none;
       }
     </style>
 
@@ -99,7 +103,8 @@
     },
 
     listeners: {
-      'track': '_onTrack'
+      'track': '_onTrack',
+      'transitionend': '_transitionEnd'
     },
 
     attached() {
@@ -137,26 +142,30 @@
     },
 
     _trackStart(event) {
-      if (!this.disabled) {
-        event.stopPropagation();
+      event.stopPropagation();
+      this._rects = this._getItemsRects();
+      this._target = this.getItemFromEvent(event);
+      this._targetRect = this._rects[this.items.indexOf(this._target)];
+      this._target.classList.add('item--dragging');
 
-        this._target = this.getItemFromEvent(event);
-        this._targetRect = this._target.getBoundingClientRect();
-        this._updateItemsRects();
-
-        // Place clone at target position
-        this._clone = this._target.cloneNode(true);
-        this._clone.classList.add('clone-item');
-        Polymer.dom(this).insertBefore(this._clone, this._target);
-
-        // Move target
-        this._target.classList.add('drag-item');
-        requestAnimationFrame(_ => {
-          this._translateTarget(this._targetRect);
-        });
-
-        this._setDragging(true);
+      if ('vibrate' in navigator) {
+        navigator.vibrate(30);
       }
+
+      for(let i = 0; i < this.items.length; i++) {
+        const item = this.items[i];
+        const rect = this._rects[i];
+
+        item.classList.add('item--transform');
+        item.style.transition = 'none';
+        this.translate3d(rect.left + 'px', rect.top + 'px', '1px', item);
+
+        setTimeout(_ => {
+          item.style.transition = '';
+        }, 20);
+      }
+
+      this._setDragging(true);
     },
 
     _track(event) {
@@ -167,96 +176,108 @@
       const left = this._targetRect.left + event.detail.dx;
       const top = this._targetRect.top + event.detail.dy;
 
-      requestAnimationFrame(_ => {
-        this._translateTarget({left, top});
-      });
+      this.translate3d(left + 'px', top + 'px', '1px', this._target);
 
-      const overItem = this._itemWithinBounds(event.detail);
-
-      if (overItem) {
+      const overItem = this._itemFromCoords(event.detail);
+      
+      if (overItem && overItem !== this._target) {
         const overItemIndex = this.items.indexOf(overItem);
         const targetIndex = this.items.indexOf(this._target);
+        this._moveItemArray(this.items, targetIndex, overItemIndex);
 
-        if (targetIndex > overItemIndex) {
-          Polymer.dom(this).insertBefore(this._clone, overItem);
-        } else {
-          Polymer.dom(this).insertBefore(this._clone, overItem.nextSibling);
+        for(let i = 0; i < this.items.length; i++) {
+          if (this.items[i] !== this._target) {
+            requestAnimationFrame(_ => {
+              const rect = this._rects[i];
+              this.translate3d(rect.left + 'px', rect.top + 'px', '1px', this.items[i]);
+            });
+          }
         }
-
-        this._updateItemsRects();
       }
     },
 
     _trackEnd(event) {
-      Polymer.dom(this).insertBefore(this._target, this._clone);
-      Polymer.dom(this._clone.parentNode).removeChild(this._clone);
-      this._clone = null;
-      this._target.style.transform = '';
-      this._target.classList.remove('drag-item');
+      const rect = this._rects[this.items.indexOf(this._target)];
+      this._target.classList.remove('item--dragging');
+      requestAnimationFrame(_ => {
+        this.translate3d(rect.left + 'px', rect.top + 'px', '1px', this._target);
+        this._setDragging(false);
+      });
+    },
+
+    _finishTrackEnd() {
+      const fragment = document.createDocumentFragment();
+
+      this.items.forEach(item => {
+        item.style.transform = '';
+        item.classList.remove('item--transform');
+        Polymer.dom(fragment).appendChild(item);
+      });
+
+      Polymer.dom(this).appendChild(fragment);
+
+      this._rects = null;
       this._target = null;
       this._targetRect = null;
-      this._rects = null;      
-      this._setDragging(false);
       this._updateItems();
       this.fire('sort-list');
     },
 
-    _translateTarget({left, top} = {}) {
-      if (this._target) {
-        this.translate3d(`${left}px`, `${top}px`, '1px', this._target);
+    _transitionEnd(event) {
+      if (!this.dragging) {
+        this._finishTrackEnd();
       }
     },
 
     /**
-     * Observer items under the given node.
-     *
-     * @param {!HTMLElement} node
+     * Move an array item from one position to another.     
+     * Source: http://stackoverflow.com/questions/5306680/move-an-array-element-from-one-array-position-to-another
      */
+    _moveItemArray(array, oldIndex, newIndex) {
+      if (newIndex >= array.length) {
+        var k = newIndex - array.length;
+        while ((k--) + 1) {
+         array.push(undefined);
+        }
+      }
+      array.splice(newIndex, 0, array.splice(oldIndex, 1)[0]);
+      return array;
+    },
+
+    _getItemsRects: function() {
+      const rects = [];
+      for (let i = 0; i < this.items.length; i++) {
+        const rect = this.items[i].getBoundingClientRect();
+        rects.push(rect);
+      }
+      return rects;
+    },
+
     _observeItems: function(node) {
       return Polymer.dom(node).observeNodes(mutation => {
         this._updateItems();
       });
     },
 
-    /**
-     * Update items array.
-     */
     _updateItems: function() {
       if (!this.dragging) {
         let nodes = Polymer.dom(this).queryDistributedElements(this.selectable || '*');
-
         nodes = nodes.filter(node => {
-          return node.localName !== 'template' && !node.matches('.clone-item');
+          return node.localName !== 'template';
         });
-
         this._setItems(nodes);
       }
     },
 
-    _updateItemsRects: function() {
-      const rects = new Map();
-
-      for (let i = 0; i < this.items.length; i++) {
-        const rect = this.items[i].getBoundingClientRect();
-        rects.set(this.items[i], rect);
-      }
-
-      this._rects = rects;
-    },
-
-    _itemWithinBounds({x, y}) {
+    _itemFromCoords({x, y}) {
+      if (!this._rects) {return;}
       let match = null;
-
-      this._rects.forEach((rect, item) => {
-        if (item.classList.contains('drag-item') || item.classList.contains('clone-item')) {
-          return;
-        }
+      this._rects.forEach((rect, i) => {
         if (x >=rect.left && x <= rect.left + rect.width
           && y >= rect.top && y <= rect.top + rect.height) {
-            match = item;
+            match = this.items[i];
           }
       });
-
       return match;
     }
 
