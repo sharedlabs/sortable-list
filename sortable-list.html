@@ -219,7 +219,12 @@
         Polymer.dom(fragment).appendChild(item);
       });
 
-      Polymer.dom(this).appendChild(fragment);
+      if (this.children[0]) {
+        Polymer.dom(this).insertBefore(fragment, this.children[0]);
+      } else {
+        Polymer.dom(this).appendChild(fragment);
+      }
+
       this.style.height = '';
       this._target.classList.remove('item--dragging');
       this._rects = null;
