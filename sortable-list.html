@@ -4,7 +4,7 @@
 `sortable-list`
 
 
-@demo demo/index.html 
+@demo demo/index.html
 -->
 
 <dom-module id="sortable-list">
@@ -32,7 +32,7 @@
 
      ::content .item--transform {
         left: 0;
-        margin: 0 !important; 
+        margin: 0 !important;
         position: fixed !important;
         top: 0;
         will-change: transform;
@@ -75,8 +75,23 @@
       sortable: String,
 
       /**
+      * This is a CSS selector string. If this is set, only items that match the CSS selector
+      * can invoke dragging.
+      */
+      dragHandle: String,
+
+      /**
+       * Whether to disable bounce scrolling on iOS devices.
+       */
+      disableBounce: {
+        type: Boolean,
+        reflectToAttribute: true,
+        value: false
+      },
+
+      /**
        * The list of sortable items.
-       */      
+       */
       items: {
         type: Array,
         notify: true,
@@ -111,7 +126,7 @@
       'transitionend': '_transitionEnd'
     },
 
-    attached() {
+    attached: function() {
       this._observer = this._observeItems(this);
       this._updateItems();
     },
@@ -122,7 +137,7 @@
       }
     },
 
-    _onTrack(event) {
+    _onTrack: function(event) {
       switch(event.detail.state) {
         case 'start': this._trackStart(event); break;
         case 'track': this._track(event); break;
@@ -130,7 +145,7 @@
       }
     },
 
-    _trackStart(event) {
+    _trackStart: function(event) {
       if (this.disabled) {
         return;
       }
@@ -139,6 +154,17 @@
 
       if (!this._target) {
         return;
+      }
+
+      if (this.dragHandle !== "") {
+        let target = (event.path && event.path[0]) || event.target.shadowRoot || event.target;
+        if (!target.classList.contains(this.dragHandle)) {
+          return;
+        }
+      }
+
+      if (this.disableBounce) {
+        document.addEventListener('touchmove', this._disableBounce);
       }
 
       event.stopPropagation();
@@ -150,7 +176,7 @@
       if ('vibrate' in navigator) {
         navigator.vibrate(30);
       }
-      
+
       this.style.height = this.getBoundingClientRect().height + 'px';
 
       for(let i = 0; i < this.items.length; i++) {
@@ -159,9 +185,11 @@
 
         item.classList.add('item--transform');
         item.style.transition = 'none';
+        item.originalWidth = item.style.width;
+        item.style.width = rect.width + 'px';
         this.translate3d(rect.left + 'px', rect.top + 'px', '1px', item);
 
-        setTimeout(_ => {
+        setTimeout(function() {
           item.style.transition = '';
         }, 20);
       }
@@ -169,18 +197,19 @@
       this._setDragging(true);
     },
 
-    _track(event) {
+    _track: function(event) {
       if (!this.dragging) {
         return;
       }
 
+      const self = this;
       const left = this._targetRect.left + event.detail.dx;
       const top = this._targetRect.top + event.detail.dy;
 
       this.translate3d(left + 'px', top + 'px', '1px', this._target);
 
       const overItem = this._itemFromCoords(event.detail);
-      
+
       if (overItem && overItem !== this._target) {
         const overItemIndex = this.items.indexOf(overItem);
         const targetIndex = this.items.indexOf(this._target);
@@ -188,32 +217,34 @@
 
         for(let i = 0; i < this.items.length; i++) {
           if (this.items[i] !== this._target) {
-            requestAnimationFrame(_ => {
-              const rect = this._rects[i];
-              this.translate3d(rect.left + 'px', rect.top + 'px', '1px', this.items[i]);
+            const item = this.items[i];
+            const rect = this._rects[i];
+            requestAnimationFrame(function() {
+              self.translate3d(rect.left + 'px', rect.top + 'px', '1px', item);
             });
           }
         }
       }
     },
 
-    _trackEnd(event) {
+    _trackEnd: function(event) {
       if (!this.dragging) {
         return;
       }
 
+      const self = this;
       const rect = this._rects[this.items.indexOf(this._target)];
       this._target.classList.remove('item--no-transition');
-      requestAnimationFrame(_ => {
-        this._setDragging(false);
-        this.translate3d(rect.left + 'px', rect.top + 'px', '1px', this._target);
+      requestAnimationFrame(function() {
+        self._setDragging(false);
+        self.translate3d(rect.left + 'px', rect.top + 'px', '1px', self._target);
       });
     },
 
-    _finishTrackEnd() {
+    _finishTrackEnd: function() {
       const fragment = document.createDocumentFragment();
 
-      this.items.forEach(item => {
+      this.items.forEach(function(item) {
         item.style.transform = '';
         item.classList.remove('item--transform');
         Polymer.dom(fragment).appendChild(item);
@@ -234,23 +265,27 @@
       this.fire('sort-list');
     },
 
-    _transitionEnd(event) {
+    _transitionEnd: function(event) {
       if (!this.dragging && this._target) {
         this._finishTrackEnd();
       }
+
+      if (this.disableBounce) {
+        document.removeEventListener('touchmove', this._disableBounce);
+      }
     },
 
-    _onDragStart(event) {
+    _onDragStart: function(event) {
       if (event.target !== this) {
         event.preventDefault();
       }
     },
 
     /**
-     * Move an array item from one position to another.     
+     * Move an array item from one position to another.
      * Source: http://stackoverflow.com/questions/5306680/move-an-array-element-from-one-array-position-to-another
      */
-    _moveItemArray(array, oldIndex, newIndex) {
+    _moveItemArray: function(array, oldIndex, newIndex) {
       if (newIndex >= array.length) {
         var k = newIndex - array.length;
         while ((k--) + 1) {
@@ -271,34 +306,39 @@
     },
 
     _observeItems: function(node) {
-      return Polymer.dom(node).observeNodes(mutation => {
-        this._updateItems();
+      let self = this;
+      return Polymer.dom(node).observeNodes(function(mutation) {
+        self._updateItems();
       });
     },
 
     _updateItems: function() {
       if (!this.dragging) {
         let nodes = Polymer.dom(this).queryDistributedElements(this.sortable || '*');
-        nodes = nodes.filter(node => {
+        nodes = nodes.filter(function(node) {
+          node.style.width = node.originalWidth;
           return node.localName !== 'template';
         });
         this._setItems(nodes);
       }
     },
 
-    _itemFromCoords({x, y}) {
+    _itemFromCoords: function(c) {
       if (!this._rects) {return;}
+      const self = this;
       let match = null;
-      this._rects.forEach((rect, i) => {
-        if (x >=rect.left && x <= rect.left + rect.width
-          && y >= rect.top && y <= rect.top + rect.height) {
-            match = this.items[i];
-          }
+      this._rects.forEach(function(rect, i) {
+        if (
+          c.x >=rect.left && c.x <= rect.left + rect.width &&
+          c.y >= rect.top && c.y <= rect.top + rect.height
+        ) {
+            match = self.items[i];
+        }
       });
       return match;
     },
 
-    _getItemFromEvent(event) {
+    _getItemFromEvent: function(event) {
       let node = event.target;
       let target;
 
@@ -311,6 +351,10 @@
       }
 
       return target;
+    },
+
+    _disableBounce: function(event) {
+      event.preventDefault();
     }
 
   });
