@@ -159,11 +159,13 @@
       if (this.dragHandle !== "") {
         let target = (event.path && event.path[0]) || event.target.shadowRoot || event.target;
         if (!target.classList.contains(this.dragHandle)) {
+          this.setScrollDirection('all')
           return;
         }
       }
 
       if (this.disableBounce) {
+        this.setScrollDirection('none')
         document.addEventListener('touchmove', this._disableBounce);
       }
 
