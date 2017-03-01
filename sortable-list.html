@@ -156,16 +156,16 @@
         return;
       }
 
-      if (this.dragHandle !== "") {
-        let target = (event.path && event.path[0]) || event.target.shadowRoot || event.target;
+      if (this.dragHandle !== '') {
+        var target = (event.path && event.path[0]) || event.target.shadowRoot || event.target;
         if (!target.classList.contains(this.dragHandle)) {
-          this.setScrollDirection('all')
+          this.setScrollDirection('all');
           return;
         }
       }
 
       if (this.disableBounce) {
-        this.setScrollDirection('none')
+        this.setScrollDirection('none');
         document.addEventListener('touchmove', this._disableBounce);
       }
 
@@ -181,7 +181,7 @@
 
       this.style.height = this.getBoundingClientRect().height + 'px';
 
-      for(let i = 0; i < this.items.length; i++) {
+      for(var i = 0; i < this.items.length; i++) {
         const item = this.items[i];
         const rect = this._rects[i];
 
@@ -217,7 +217,7 @@
         const targetIndex = this.items.indexOf(this._target);
         this._moveItemArray(this.items, targetIndex, overItemIndex);
 
-        for(let i = 0; i < this.items.length; i++) {
+        for(var i = 0; i < this.items.length; i++) {
           if (this.items[i] !== this._target) {
             const item = this.items[i];
             const rect = this._rects[i];
@@ -300,7 +300,7 @@
 
     _getItemsRects: function() {
       const rects = [];
-      for (let i = 0; i < this.items.length; i++) {
+      for (var i = 0; i < this.items.length; i++) {
         const rect = this.items[i].getBoundingClientRect();
         rects.push(rect);
       }
@@ -308,7 +308,7 @@
     },
 
     _observeItems: function(node) {
-      let self = this;
+      var self = this;
       return Polymer.dom(node).observeNodes(function(mutation) {
         self._updateItems();
       });
@@ -316,7 +316,7 @@
 
     _updateItems: function() {
       if (!this.dragging) {
-        let nodes = Polymer.dom(this).queryDistributedElements(this.sortable || '*');
+        var nodes = Polymer.dom(this).queryDistributedElements(this.sortable || '*');
         nodes = nodes.filter(function(node) {
           node.style.width = node.originalWidth;
           return node.localName !== 'template';
@@ -328,7 +328,7 @@
     _itemFromCoords: function(c) {
       if (!this._rects) {return;}
       const self = this;
-      let match = null;
+      var match = null;
       this._rects.forEach(function(rect, i) {
         if (
           c.x >=rect.left && c.x <= rect.left + rect.width &&
@@ -341,8 +341,8 @@
     },
 
     _getItemFromEvent: function(event) {
-      let node = event.target;
-      let target;
+      var node = event.target;
+      var target;
 
       while(node && node !== this) {
         if (this.items.indexOf(node) >= 0) {
