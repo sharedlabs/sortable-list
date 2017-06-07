@@ -1,4 +1,5 @@
-<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../polymer/polymer-element.html">
+<link rel="import" href="../polymer/lib/mixins/gesture-event-listeners.html">
 
 <!--
 `sortable-list`
@@ -14,7 +15,7 @@
         display: inline-block;
       }
 
-      ::content * {
+      ::slotted(*) {
         user-drag: none;
         user-select: none;
         -moz-user-select: none;
@@ -24,342 +25,290 @@
         -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
       }
 
-      :host([dragging]) {
-        cursor: grabbing;
-        cursor: -moz-grabbing;
-        cursor: -webkit-grabbing;
-      }
-
-     ::content .item--transform {
+      ::slotted(.item--transform) {
         left: 0;
         margin: 0 !important;
         position: fixed !important;
         top: 0;
+        transition: transform 0.2s cubic-bezier(0.333, 0, 0, 1);
         will-change: transform;
         z-index: 1;
-        transition: transform 0.2s cubic-bezier(0.333, 0, 0, 1);
       }
 
-      ::content .item--no-transition {
+      ::slotted(.item--no-transition) {
         transition: none !important;
       }
 
-      ::content .item--dragging {
-        filter: brightness(1.1);
+      ::slotted(.item--dragging) {
         -webkit-box-shadow: 0 2px 10px rgba(0,0,0,.2);
         box-shadow: 0 2px 10px rgba(0,0,0,.2);
+        filter: brightness(1.1);
         z-index: 2;
-
       }
     </style>
-
-    <content></content>
+    
+    <div
+        id="items"
+        on-track="_onTrack"
+        on-dragstart="_onDragStart"
+        on-transitionend="_onTransitionEnd">
+      <slot id="slot"></slot>
+    </div>
 
   </template>
-</dom-module>
 
-<script>
-(function() {
-  'use strict';
+  <script>
 
-  Polymer({
+    class SortableList extends Polymer.GestureEventListeners(Polymer.Element) {
 
-    is: 'sortable-list',
+      static get is() {return 'sortable-list';}
 
-    properties: {
+      static get properties() {
+        return {
 
-      /**
-       * This is a CSS selector string. If this is set, only items that match the CSS selector
-       * are sortable.
-       */
-      sortable: String,
+          /**
+          * This is a CSS selector string. If this is set, only items that match
+          * the CSS selector are sortable.
+          */
+          selectable: String,
 
-      /**
-      * This is a CSS selector string. If this is set, only items that match the CSS selector
-      * can invoke dragging.
-      */
-      dragHandle: String,
+          /**
+          * The list of sortable items.
+          */
+          items: {
+            type: Array,
+            notify: true,
+            readOnly: true
+          },
 
-      /**
-       * Whether to disable bounce scrolling on iOS devices.
-       */
-      disableBounce: {
-        type: Boolean,
-        reflectToAttribute: true,
-        value: false
-      },
+          /**
+          * Returns true when an item is being drag.
+          */
+          dragging: {
+            type: Boolean,
+            notify: true,
+            readOnly: true,
+            reflectToAttribute: true,
+            value: false
+          },
 
-      /**
-       * The list of sortable items.
-       */
-      items: {
-        type: Array,
-        notify: true,
-        readOnly: true
-      },
+          /**
+          * Whether the sorting is possible.
+          */
+          disabled: {
+            type: Boolean,
+            reflectToAttribute: true,
+            value: false
+          }
 
-      /**
-       * Returns true when an item is being drag.
-       */
-      dragging: {
-        type: Boolean,
-        reflectToAttribute: true,
-        notify: true,
-        readOnly: true,
-        value: false
-      },
-
-      /**
-       * Whether the sorting is possible.
-       */
-      disabled: {
-        type: Boolean,
-        reflectToAttribute: true,
-        value: false
+        };
       }
 
-    },
-
-    listeners: {
-      'track': '_onTrack',
-      'dragstart': '_onDragStart',
-      'transitionend': '_transitionEnd'
-    },
-
-    attached: function() {
-      this._observer = this._observeItems(this);
-      this._updateItems();
-    },
-
-    detached: function() {
-      if (this._observer) {
-        Polymer.dom(this).unobserveNodes(this._observer);
-      }
-    },
-
-    _onTrack: function(event) {
-      switch(event.detail.state) {
-        case 'start': this._trackStart(event); break;
-        case 'track': this._track(event); break;
-        case 'end': this._trackEnd(event); break;
-      }
-    },
-
-    _trackStart: function(event) {
-      if (this.disabled) {
-        return;
+      constructor() {
+        super();
+        this._observer = null;
+        this._target = null;
       }
 
-      this._target = this._getItemFromEvent(event);
+      connectedCallback() {
+        super.connectedCallback();
+        requestAnimationFrame(_ => {
+          this._observeItems();
+          this._updateItems();
+        });
+      } 
 
-      if (!this._target) {
-        return;
-      }
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this._unobserveItems();
+      } 
 
-      if (this.dragHandle !== '') {
-        var target = (event.path && event.path[0]) || event.target.shadowRoot || event.target;
-        if (!target.classList.contains(this.dragHandle)) {
-          this.setScrollDirection('all');
-          return;
+      _onTrack(event) {
+        switch(event.detail.state) {
+          case 'start': this._trackStart(event); break;
+          case 'track': this._track(event); break;
+          case 'end': this._trackEnd(event); break;
         }
       }
 
-      if (this.disableBounce) {
-        this.setScrollDirection('none');
-        document.addEventListener('touchmove', this._disableBounce);
+      _trackStart(event) {
+        if (this.disabled) {
+          return;
+        }
+        this._target = this._itemFromEvent(event);
+        if (!this._target) {
+          return;
+        }
+        event.stopPropagation();
+        this._rects = this._getItemsRects();
+        this._targetRect = this._rects[this.items.indexOf(this._target)];
+        this._target.classList.add('item--dragging');
+        this._target.classList.add('item--no-transition');
+        if ('vibrate' in navigator) {
+          navigator.vibrate(30);
+        }
+        this.style.height = this.getBoundingClientRect().height + 'px';
+        this.items.forEach((item, idx) => {
+          const rect = this._rects[idx];
+          item.classList.add('item--transform');
+          item.style.transition = 'none';
+          this._translate3d(rect.left, rect.top, 1, item);
+          setTimeout(_ => {
+            item.style.transition = null;
+          });
+        });
+        this._setDragging(true);
       }
 
-      event.stopPropagation();
-      this._rects = this._getItemsRects();
-      this._targetRect = this._rects[this.items.indexOf(this._target)];
-      this._target.classList.add('item--dragging');
-      this._target.classList.add('item--no-transition');
-
-      if ('vibrate' in navigator) {
-        navigator.vibrate(30);
-      }
-
-      this.style.height = this.getBoundingClientRect().height + 'px';
-
-      for(var i = 0; i < this.items.length; i++) {
-        const item = this.items[i];
-        const rect = this._rects[i];
-
-        item.classList.add('item--transform');
-        item.style.transition = 'none';
-        item.originalWidth = item.style.width;
-        item.style.width = rect.width + 'px';
-        this.translate3d(rect.left + 'px', rect.top + 'px', '1px', item);
-
-        setTimeout(function() {
-          item.style.transition = '';
-        }, 20);
-      }
-
-      this._setDragging(true);
-    },
-
-    _track: function(event) {
-      if (!this.dragging) {
-        return;
-      }
-
-      const self = this;
-      const left = this._targetRect.left + event.detail.dx;
-      const top = this._targetRect.top + event.detail.dy;
-
-      this.translate3d(left + 'px', top + 'px', '1px', this._target);
-
-      const overItem = this._itemFromCoords(event.detail);
-
-      if (overItem && overItem !== this._target) {
-        const overItemIndex = this.items.indexOf(overItem);
-        const targetIndex = this.items.indexOf(this._target);
-        this._moveItemArray(this.items, targetIndex, overItemIndex);
-
-        for(var i = 0; i < this.items.length; i++) {
-          if (this.items[i] !== this._target) {
-            const item = this.items[i];
-            const rect = this._rects[i];
-            requestAnimationFrame(function() {
-              self.translate3d(rect.left + 'px', rect.top + 'px', '1px', item);
-            });
+      _track(event) {
+        if (!this.dragging) {
+          return;
+        }
+        const left = this._targetRect.left + event.detail.dx;
+        const top = this._targetRect.top + event.detail.dy;
+        this._translate3d(left, top, 1, this._target);
+        const overItem = this._itemFromCoords(event.detail);
+        if (overItem && overItem !== this._target) {
+          const overItemIndex = this.items.indexOf(overItem);
+          const targetIndex = this.items.indexOf(this._target);
+          this._moveItemArray(this.items, targetIndex, overItemIndex);
+          for(let i = 0; i < this.items.length; i++) {
+            if (this.items[i] !== this._target) {
+              requestAnimationFrame(_ => {
+                const rect = this._rects[i];
+                this._translate3d(rect.left, rect.top, 1, this.items[i]);
+              });
+            }
           }
         }
       }
-    },
 
-    _trackEnd: function(event) {
-      if (!this.dragging) {
-        return;
-      }
-
-      const self = this;
-      const rect = this._rects[this.items.indexOf(this._target)];
-      this._target.classList.remove('item--no-transition');
-      requestAnimationFrame(function() {
-        self._setDragging(false);
-        self.translate3d(rect.left + 'px', rect.top + 'px', '1px', self._target);
-      });
-    },
-
-    _finishTrackEnd: function() {
-      const fragment = document.createDocumentFragment();
-
-      this.items.forEach(function(item) {
-        item.style.transform = '';
-        item.classList.remove('item--transform');
-        Polymer.dom(fragment).appendChild(item);
-      });
-
-      if (this.children[0]) {
-        Polymer.dom(this).insertBefore(fragment, this.children[0]);
-      } else {
-        Polymer.dom(this).appendChild(fragment);
-      }
-
-      this.style.height = '';
-      this._target.classList.remove('item--dragging');
-      this._rects = null;
-      this._target = null;
-      this._targetRect = null;
-      this._updateItems();
-      this.fire('sort-list');
-    },
-
-    _transitionEnd: function(event) {
-      if (!this.dragging && this._target) {
-        this._finishTrackEnd();
-      }
-
-      if (this.disableBounce) {
-        document.removeEventListener('touchmove', this._disableBounce);
-      }
-    },
-
-    _onDragStart: function(event) {
-      if (event.target !== this) {
-        event.preventDefault();
-      }
-    },
-
-    /**
-     * Move an array item from one position to another.
-     * Source: http://stackoverflow.com/questions/5306680/move-an-array-element-from-one-array-position-to-another
-     */
-    _moveItemArray: function(array, oldIndex, newIndex) {
-      if (newIndex >= array.length) {
-        var k = newIndex - array.length;
-        while ((k--) + 1) {
-         array.push(undefined);
+      // The track really ends
+      _trackEnd(event) {
+        if (!this.dragging) {
+          return;
         }
-      }
-      array.splice(newIndex, 0, array.splice(oldIndex, 1)[0]);
-      return array;
-    },
-
-    _getItemsRects: function() {
-      const rects = [];
-      for (var i = 0; i < this.items.length; i++) {
-        const rect = this.items[i].getBoundingClientRect();
-        rects.push(rect);
-      }
-      return rects;
-    },
-
-    _observeItems: function(node) {
-      var self = this;
-      return Polymer.dom(node).observeNodes(function(mutation) {
-        self._updateItems();
-      });
-    },
-
-    _updateItems: function() {
-      if (!this.dragging) {
-        var nodes = Polymer.dom(this).queryDistributedElements(this.sortable || '*');
-        nodes = nodes.filter(function(node) {
-          node.style.width = node.originalWidth;
-          return node.localName !== 'template';
+        const rect = this._rects[this.items.indexOf(this._target)];
+        this._target.classList.remove('item--no-transition');
+        requestAnimationFrame(_ => {
+          this._setDragging(false);
+          this._translate3d(rect.left, rect.top, 1, this._target);
         });
-        this._setItems(nodes);
-      }
-    },
-
-    _itemFromCoords: function(c) {
-      if (!this._rects) {return;}
-      const self = this;
-      var match = null;
-      this._rects.forEach(function(rect, i) {
-        if (
-          c.x >=rect.left && c.x <= rect.left + rect.width &&
-          c.y >= rect.top && c.y <= rect.top + rect.height
-        ) {
-            match = self.items[i];
-        }
-      });
-      return match;
-    },
-
-    _getItemFromEvent: function(event) {
-      var node = event.target;
-      var target;
-
-      while(node && node !== this) {
-        if (this.items.indexOf(node) >= 0) {
-          target = node;
-          break;
-        }
-        node = node.parentNode;
       }
 
-      return target;
-    },
+      _onDragStart(event) {
+        if (event.composedPath()[0] !== this) {
+          event.preventDefault();
+        }
+      }
 
-    _disableBounce: function(event) {
-      event.preventDefault();
+      _onTransitionEnd() {
+        if (this.dragging || !this._target) {
+          return;
+        }
+        const fragment = document.createDocumentFragment();
+        this.items.forEach(item => {
+          item.style.transform = '';
+          item.classList.remove('item--transform');
+          fragment.appendChild(item);
+        });
+        if (this.children[0]) {
+          this.insertBefore(fragment, this.children[0]);
+        } else {
+          this.appendChild(fragment);
+        }
+        this.style.height = '';
+        this._target.classList.remove('item--dragging');
+        this._rects = null;
+        this._target = null;
+        this._targetRect = null;
+        this._updateItems();
+        this.dispatchEvent(new CustomEvent('sort-finish', {
+          composed: true
+        }));
+      }
+
+      /**
+       * Updates the items array.
+       */
+      _updateItems() {
+        if (this.dragging) {
+          return;
+        }
+        const items = this.$.slot.assignedNodes().filter(node => {
+          if ((node.nodeType === Node.ELEMENT_NODE) &&
+              (!this.selectable || node.matches(this.selectable))) {
+            return true;
+          }
+        });
+        this._setItems(items);
+      }
+
+      _itemFromCoords({x, y}) {
+        if (!this._rects) {return;}
+        let match = null;
+        this._rects.forEach((rect, i) => {
+          if (x >=rect.left && x <= rect.left + rect.width
+            && y >= rect.top && y <= rect.top + rect.height) {
+              match = this.items[i];
+            }
+        });
+        return match;
+      }
+
+      _itemFromEvent(event) {
+        const path = event.composedPath();
+        for (var i = 0; i < path.length; i++) {
+          if (this.items.indexOf(path[i]) > -1) {
+            return path[i];
+          }
+        }
+      }
+
+      _getItemsRects() {
+        return this.items.map(item => {
+          return item.getBoundingClientRect();
+        })
+      }
+
+      _observeItems() {
+        if (!this._observer) {
+          this._observer = new MutationObserver(_ => {
+            this._updateItems();
+          });
+          this._observer.observe(this, {childList: true});
+        }
+      }
+
+      _unobserveItems() {
+        if (this._observer) {
+          this._observer.disconnect();
+          this._observer = null;
+        }
+      }
+
+      /**
+       * Move an array item from one position to another.     
+       * Source: http://stackoverflow.com/questions/5306680/move-an-array-element-from-one-array-position-to-another
+       */
+      _moveItemArray(array, oldIndex, newIndex) {
+        if (newIndex >= array.length) {
+          var k = newIndex - array.length;
+          while ((k--) + 1) {
+          array.push(undefined);
+          }
+        }
+        array.splice(newIndex, 0, array.splice(oldIndex, 1)[0]);
+        return array;
+      }
+
+      _translate3d(x, y, z, el) {
+        el.style.transform = `translate3d(${x}px, ${y}px, ${z}px)`;
+      }
+
     }
 
-  });
+    customElements.define(SortableList.is, SortableList);
 
-}());
-</script>
+  </script>
+</dom-module>
