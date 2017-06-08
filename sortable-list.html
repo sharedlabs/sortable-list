@@ -66,7 +66,7 @@
            * This is a CSS selector string. If this is set, only items that 
            * match the CSS selector are sortable.
            */
-          selectable: String,
+          sortable: String,
 
           /**
            * The list of sortable items.
@@ -211,9 +211,10 @@
         if (!this.dragging) {
           return;
         }
+        const rect = this._rects[this.items.indexOf(this._target)];
         this._target.classList.remove('item--pressed');
         this._setDragging(false);
-        this._translate3d(this._targetRect.left, this._targetRect.top, 1, this._target);
+        this._translate3d(rect.left, rect.top, 1, this._target);
       }
 
       _onTransitionEnd() {
@@ -268,7 +269,7 @@
         }
         const items = this.$.slot.assignedNodes().filter(node => {
           if ((node.nodeType === Node.ELEMENT_NODE) &&
-              (!this.selectable || node.matches(this.selectable))) {
+              (!this.sortable || node.matches(this.sortable))) {
             return true;
           }
         });
