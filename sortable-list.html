@@ -211,10 +211,9 @@
         if (!this.dragging) {
           return;
         }
-        const rect = this._rects[this.items.indexOf(this._target)];
         this._target.classList.remove('item--pressed');
         this._setDragging(false);
-        this._translate3d(rect.left, rect.top, 1, this._target);
+        this._translate3d(this._targetRect.left, this._targetRect.top, 1, this._target);
       }
 
       _onTransitionEnd() {
@@ -236,13 +235,16 @@
         }
         this.style.height = '';
         this._target.classList.remove('item--dragged');
-        this._rects = null;
-        this._target = null;
+        this._this._targetRects = null;
         this._targetRect = null;
         this._updateItems();
         this.dispatchEvent(new CustomEvent('sort-finish', {
-          composed: true
+          composed: true,
+          detail: {
+            target: this._target
+          }
         }));
+        this._target = null;
       }
 
       _onDragStart(event) {
