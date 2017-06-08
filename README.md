@@ -29,6 +29,8 @@ When using a dom-repeat you must specify which items are sortable.
 </sortable-list>
 ```
 
-# TODO:
+---
 
-- [] Allow sort of elements with different sizes #2
+### TODO:
+
+- [ ] Allow sort of elements with different sizes #2
