@@ -8,9 +8,24 @@ _[Demo and API docs](https://sharedlabs.github.io/sortable-list/components/sorta
 `sortable-list` is a custom element that allows you sort element from a list by drag.
 
 ```html
-<sortable-list>
+<sortable-list on-sort-finish="_onSortFinish" dragging="{{dragging}}">
   <div>Item 1</div>
   <div>Item 2</div>
   <div>Item 3</div>
 </sortable-list>
+
+...
+onSortFinish(event) {
+  const sortedItem = event.detail.target;
+}
 ```
+
+When using a dom-repeat you must specify which items are sortable.
+```html
+<sortable-list sortable=".item">
+  <dom-repeat>
+    <div class="item"></div>
+  </dom-repeat>
+</sortable-list>
+```
+
