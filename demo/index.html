@@ -1,14 +1,20 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
-    <title>sortable-list demo</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
-    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+
+    <title>sortable-list demo</title>
+
     <link rel="import" href="../sortable-list.html">
+    <link rel="import" href="../../polymer/lib/elements/dom-repeat.html">
 
     <style>
-      sortable-list div {
+      body {
+        font-family: sans-serif;
+      }
+  
+      .item {
         background: #ddd;
         display: inline-block;
         float: left;
@@ -19,7 +25,7 @@
         width: 150px;
       }
 
-      sortable-list div img {
+      .item img {
         height: 100%;
         width: auto;
       }
@@ -29,20 +35,20 @@
 
     <h1>Drag the items</h1>
 
-    <template is="dom-bind" id="app">
-      <sortable-list>
-        <template is="dom-repeat" items="[[items]]">
-          <div>
+    <sortable-list selectable=".item">
+      <dom-repeat id="domRepeat">
+        <template>
+          <div class="item">
             <img src$="[[item]]"/>
           </div>
         </template>
-      </sortable-list>
-    </template>
+      </dom-repeat>
+    </sortable-list>
 
     <script>
-      const app = document.querySelector('#app');
+      const domRepeat = document.querySelector('#domRepeat');
 
-      app.items = [
+      domRepeat.items = [
         "https://cdn2.iconfinder.com/data/icons/cutecritters/t9dog2_trans.png",
         "https://cdn2.iconfinder.com/data/icons/cutecritters/t9tuqui_trans.png",
         "https://cdn2.iconfinder.com/data/icons/cutecritters/t9panda_trans.png",
