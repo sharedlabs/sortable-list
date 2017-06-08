@@ -5,7 +5,7 @@ _[Demo and API docs](https://www.webcomponents.org/element/sharedlabs/sortable-l
 
 # sortable-list
 
-`sortable-list` is a custom element that allows you sort element from a list by drag.
+`sortable-list` is a custom element that allows you to sort an element from a list by dragging it.
 
 ```html
 <sortable-list on-sort-finish="_onSortFinish" dragging="{{dragging}}">
