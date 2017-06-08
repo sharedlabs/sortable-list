@@ -3,6 +3,8 @@
 
 _[Demo and API docs](https://www.webcomponents.org/element/sharedlabs/sortable-list)_
 
+![GIF](https://zippy.gfycat.com/IncredibleBronzeKillerwhale.gif)
+
 # sortable-list
 
 `sortable-list` is a custom element that allows you to sort an element from a list by dragging it.
