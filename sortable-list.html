@@ -236,7 +236,7 @@
         }
         this.style.height = '';
         this._target.classList.remove('item--dragged');
-        this._this._targetRects = null;
+        this._rects = null;
         this._targetRect = null;
         this._updateItems();
         this.dispatchEvent(new CustomEvent('sort-finish', {
