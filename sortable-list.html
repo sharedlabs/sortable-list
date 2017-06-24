@@ -49,7 +49,6 @@
       #items {
         /* needs to be positioned */
         position: relative;
-
       }
     </style>
     
@@ -108,7 +107,6 @@
           */
           scrollingSpeed: {
             type: Number,
-            reflectToAttribute: true,
             value: 6
           },
 
@@ -187,7 +185,6 @@
         event.stopPropagation();
         this._computedStyle = window.getComputedStyle(this);
         this._rects = this._getItemsRects();
-        console.log(this._rects);
         this._targetRect = this._rects[this.items.indexOf(this._target)];
         this._target.classList.add('item--dragged', 'item--pressed');
         if ('vibrate' in navigator) {
@@ -220,10 +217,11 @@
 
         const containerRect = this.getBoundingClientRect();
         const targetRect = this._target.getBoundingClientRect();
+        const containerPaddingAndMarginTop = parseFloat(this._computedStyle.borderTopWidth) + parseFloat(this._computedStyle.paddingTop);
+        const containerPaddingAndMarginBottom = parseFloat(this._computedStyle.borderBottomWidth) + parseFloat(this._computedStyle.paddingBottom);
 
         // updates the target's position to the users finger position while dragging and possibly scrolling
-        // const targetNewYPosition = (targetRect.top - parseFloat(this._computedStyle.borderTopWidth) - parseFloat(this._computedStyle.paddingTop)) - containerRect.top + event.detail.ddy;
-        const targetNewYPosition = (targetRect.top - parseFloat(this._computedStyle.borderTopWidth) - parseFloat(this._computedStyle.paddingTop)) - containerRect.top + event.detail.ddy;
+        const targetNewYPosition = (targetRect.top - containerPaddingAndMarginTop) - containerRect.top + event.detail.ddy;
 
         const containerHeight = this.offsetHeight;
         const viewportHeight = window.innerHeight;
@@ -236,8 +234,8 @@
         if (this.scroll) {
 
           const targetRectRelativeToContainer = {
-            top: targetRect.top - containerRect.top,
-            bottom: targetRect.bottom - containerRect.top
+            top: targetRect.top - containerPaddingAndMarginTop - containerRect.top,
+            bottom: targetRect.bottom - containerPaddingAndMarginBottom - containerRect.top
           };
 
           const UPWARDS = -1;
