@@ -185,15 +185,18 @@
           return;
         }
         event.stopPropagation();
+        this._computedStyle = window.getComputedStyle(this);
         this._rects = this._getItemsRects();
+        console.log(this._rects);
         this._targetRect = this._rects[this.items.indexOf(this._target)];
         this._target.classList.add('item--dragged', 'item--pressed');
         if ('vibrate' in navigator) {
           navigator.vibrate(30);
         }
         const rect = this.getBoundingClientRect();
-        this.style.height = rect.height + 'px';
-        this.style.width = rect.width + 'px';
+
+        this.style.height = this._computedStyle.height;
+        this.style.width = this._computedStyle.width;
         this.items.forEach((item, idx) => {
           const rect = this._rects[idx];
           item.classList.add('item--transform');
@@ -219,7 +222,8 @@
         const targetRect = this._target.getBoundingClientRect();
 
         // updates the target's position to the users finger position while dragging and possibly scrolling
-        const targetNewYPosition = targetRect.top - containerRect.top + event.detail.ddy;
+        // const targetNewYPosition = (targetRect.top - parseFloat(this._computedStyle.borderTopWidth) - parseFloat(this._computedStyle.paddingTop)) - containerRect.top + event.detail.ddy;
+        const targetNewYPosition = (targetRect.top - parseFloat(this._computedStyle.borderTopWidth) - parseFloat(this._computedStyle.paddingTop)) - containerRect.top + event.detail.ddy;
 
         const containerHeight = this.offsetHeight;
         const viewportHeight = window.innerHeight;
@@ -306,7 +310,8 @@
         const targetRect = this._target.getBoundingClientRect();
 
         // updates the target's position to the screens top or bottom limit while scrolling
-        const targetNewYPosition = targetRect.top - containerRect.top + num;
+        // const targetNewYPosition = (targetRect.top - parseFloat(this._computedStyle.borderTopWidth) - parseFloat(this._computedStyle.paddingTop)) - containerRect.top + num;
+        const targetNewYPosition = (targetRect.top - parseFloat(this._computedStyle.borderTopWidth) - parseFloat(this._computedStyle.paddingTop)) - containerRect.top + num;
 
         this._translate3d(this.__targetNewXPosition, targetNewYPosition, 1, this._target);
         window.scrollBy(0, num);
