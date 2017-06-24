@@ -1,5 +1,6 @@
 <link rel="import" href="../polymer/polymer-element.html">
 <link rel="import" href="../polymer/lib/mixins/gesture-event-listeners.html">
+<link rel="import" href="../shadycss/apply-shim.html">
 
 <!--
 `sortable-list`
@@ -12,7 +13,8 @@
   <template>
     <style>
       :host {
-        display: inline-block;
+        display: block;
+        position: relative;
       }
 
       ::slotted(*) {
@@ -26,10 +28,10 @@
       }
 
       ::slotted(.item--transform) {
-        /*left: 0;*/
+        left: 0;
         margin: 0 !important;
         position: absolute !important;
-        /*top: 0;*/
+        top: 0;
         transition: transform 0.2s cubic-bezier(0.333, 0, 0, 1);
         will-change: transform;
         z-index: 1;
@@ -47,7 +49,13 @@
       }
 
       #items {
-        /* needs to be positioned */
+        display: flex;
+        flex-wrap: wrap;
+        flex-direction: row;
+        justify-content: center;
+        @apply --sortable-list-container;
+
+        /* needs to be positioned */        
         position: relative;
       }
     </style>
@@ -191,6 +199,8 @@
           navigator.vibrate(30);
         }
         const rect = this.getBoundingClientRect();
+        this._containerPaddingAndMarginTop = parseFloat(this._computedStyle.borderTopWidth) + parseFloat(this._computedStyle.paddingTop);
+        this._containerPaddingAndMarginBottom = parseFloat(this._computedStyle.borderBottomWidth) + parseFloat(this._computedStyle.paddingBottom);
 
         this.style.height = this._computedStyle.height;
         this.style.width = this._computedStyle.width;
@@ -217,11 +227,10 @@
 
         const containerRect = this.getBoundingClientRect();
         const targetRect = this._target.getBoundingClientRect();
-        const containerPaddingAndMarginTop = parseFloat(this._computedStyle.borderTopWidth) + parseFloat(this._computedStyle.paddingTop);
-        const containerPaddingAndMarginBottom = parseFloat(this._computedStyle.borderBottomWidth) + parseFloat(this._computedStyle.paddingBottom);
+        
 
         // updates the target's position to the users finger position while dragging and possibly scrolling
-        const targetNewYPosition = (targetRect.top - containerPaddingAndMarginTop) - containerRect.top + event.detail.ddy;
+        const targetNewYPosition = (targetRect.top - this._containerPaddingAndMarginTop) - containerRect.top + event.detail.ddy;
 
         const containerHeight = this.offsetHeight;
         const viewportHeight = window.innerHeight;
@@ -234,8 +243,8 @@
         if (this.scroll) {
 
           const targetRectRelativeToContainer = {
-            top: targetRect.top - containerPaddingAndMarginTop - containerRect.top,
-            bottom: targetRect.bottom - containerPaddingAndMarginBottom - containerRect.top
+            top: targetRect.top - this._containerPaddingAndMarginTop - containerRect.top,
+            bottom: targetRect.bottom - this._containerPaddingAndMarginBottom - containerRect.top
           };
 
           const UPWARDS = -1;
