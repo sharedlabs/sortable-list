@@ -157,9 +157,14 @@
         if (!this._target) {
           return;
         }
+        
+        // we keep in memory the initial index of the item
+        var targetIndex = this.items.indexOf(this._target);
+        this.__targetInitialIndex = targetIndex;
+        
         event.stopPropagation();
         this._rects = this._getItemsRects();
-        this._targetRect = this._rects[this.items.indexOf(this._target)];
+        this._targetRect = this._rects[targetIndex];
         this._target.classList.add('item--dragged', 'item--pressed');
         if ('vibrate' in navigator) {
           navigator.vibrate(30);
@@ -195,6 +200,7 @@
           const overItemIndex = this.items.indexOf(overItem);
           const targetIndex = this.items.indexOf(this._target);
           this._moveItemArray(this.items, targetIndex, overItemIndex);
+          this.__targetNewIndex = overItemIndex;
           for(let i = 0; i < this.items.length; i++) {
             if (this.items[i] !== this._target) {
               const rect = this._rects[i];
@@ -242,10 +248,14 @@
         this.dispatchEvent(new CustomEvent('sort-finish', {
           composed: true,
           detail: {
-            target: this._target
+            target: this._target,
+            initialIndex: this.__targetInitialIndex,
+            newIndex: this.__targetNewIndex
           }
         }));
         this._target = null;
+        this.__targetInitialIndex = null;
+        this.__targetNewIndex = null;
       }
 
       _onDragStart(event) {
