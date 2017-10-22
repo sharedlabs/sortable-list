@@ -95,6 +95,14 @@
             type: Boolean,
             reflectToAttribute: true,
             value: false
+          },
+
+          /**
+           * The list of sorted objects
+           */
+           sortedItems: {
+            type: Array,
+            notify: true
           }
 
         };
@@ -326,6 +334,7 @@
        * Source: http://stackoverflow.com/questions/5306680/move-an-array-element-from-one-array-position-to-another
        */
       _moveItemArray(array, oldIndex, newIndex) {
+        this._moveSortedObject(oldIndex, newIndex);
         if (newIndex >= array.length) {
           var k = newIndex - array.length;
           while ((k--) + 1) {
@@ -339,7 +348,15 @@
       _translate3d(x, y, z, el) {
         el.style.transform = `translate3d(${x}px, ${y}px, ${z}px)`;
       }
-
+      /**
+      * Move sortedItems item from one position to another
+      */
+      _moveSortedObject(oldIndex, newIndex) {
+        if (this.sortedItems) {
+          let movedItem = this.sortedItems.splice(oldIndex, 1);
+          this.sortedItems.splice(newIndex, 0, movedItem[0]);
+        }
+      }
     }
 
     customElements.define(SortableList.is, SortableList);
