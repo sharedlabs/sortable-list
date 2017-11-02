@@ -267,7 +267,7 @@
         if (this.dragging) {
           return;
         }
-        const items = this.$.slot.assignedNodes().filter(node => {
+        const items = this.shadowRoot.querySelector('slot').assignedNodes().filter(node => {
           if ((node.nodeType === Node.ELEMENT_NODE) &&
               (!this.sortable || node.matches(this.sortable))) {
             return true;
@@ -307,10 +307,10 @@
 
       _observeItems() {
         if (!this._observer) {
-          this._observer = new MutationObserver(_ => {
+          this._observer = new Polymer.FlattenedNodesObserver(this.shadowRoot.querySelector('slot'), (function(evt) {
+            let effectiveChildren = Polymer.FlattenedNodesObserver.getFlattenedNodes(evt.target).filter(n => n.nodeType === Node.ELEMENT_NODE)
             this._updateItems();
-          });
-          this._observer.observe(this, {childList: true});
+          }).bind(this));
         }
       }
 
