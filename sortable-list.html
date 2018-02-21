@@ -1,5 +1,6 @@
 <link rel="import" href="../polymer/polymer-element.html">
 <link rel="import" href="../polymer/lib/mixins/gesture-event-listeners.html">
+<link rel="import" href="../shadycss/apply-shim.html">
 
 <!--
 `sortable-list`
@@ -12,7 +13,8 @@
   <template>
     <style>
       :host {
-        display: inline-block;
+        display: block;
+        position: relative;
       }
 
       #items ::slotted(*) {
@@ -28,7 +30,7 @@
       #items ::slotted(.item--transform) {
         left: 0;
         margin: 0 !important;
-        position: fixed !important;
+        position: absolute !important;
         top: 0;
         transition: transform 0.2s cubic-bezier(0.333, 0, 0, 1);
         will-change: transform;
@@ -44,6 +46,17 @@
         box-shadow: 0 2px 10px rgba(0,0,0,.2);
         filter: brightness(1.1);
         z-index: 2;
+      }
+
+      #items {
+        display: flex;
+        flex-wrap: wrap;
+        flex-direction: row;
+        justify-content: center;
+        @apply --sortable-list-container;
+
+        /* needs to be positioned */        
+        position: relative;
       }
     </style>
     
@@ -89,6 +102,23 @@
           },
 
           /**
+          * Scroll vertically if necessary
+          */
+          scroll: {
+            type: Boolean,
+            reflectToAttribute: true,
+            value: false
+          },
+
+          /**
+          * Scrolling speed. Its the quantity of pixels the page is scrolled per frame (requestAnimationFrame). 
+          */
+          scrollingSpeed: {
+            type: Number,
+            value: 6
+          },
+
+          /**
            * Disables the draggable if set to true.
            */
           disabled: {
@@ -111,6 +141,9 @@
         this._onTransitionEnd = this._onTransitionEnd.bind(this);
         this._onContextMenu = this._onContextMenu.bind(this);
         this._onTouchMove = this._onTouchMove.bind(this);
+        this._scroll = this._scroll.bind(this);
+
+        this._directionBuffer = [];
       }
 
       connectedCallback() {
@@ -150,7 +183,7 @@
       }
 
       _trackStart(event) {
-        if (this.disabled) {
+        if (this.disabled || this._animatingElementsToNaturalPosition) {
           return;
         }
         this._target = this._itemFromEvent(event);
@@ -158,6 +191,7 @@
           return;
         }
         event.stopPropagation();
+        this._computedStyle = window.getComputedStyle(this);
         this._rects = this._getItemsRects();
         this._targetRect = this._rects[this.items.indexOf(this._target)];
         this._target.classList.add('item--dragged', 'item--pressed');
@@ -165,8 +199,11 @@
           navigator.vibrate(30);
         }
         const rect = this.getBoundingClientRect();
-        this.style.height = rect.height + 'px';
-        this.style.width = rect.width + 'px';
+        this._containerPaddingAndMarginTop = parseFloat(this._computedStyle.borderTopWidth) + parseFloat(this._computedStyle.paddingTop);
+        this._containerPaddingAndMarginBottom = parseFloat(this._computedStyle.borderBottomWidth) + parseFloat(this._computedStyle.paddingBottom);
+
+        this.style.height = this._computedStyle.height;
+        this.style.width = this._computedStyle.width;
         this.items.forEach((item, idx) => {
           const rect = this._rects[idx];
           item.classList.add('item--transform');
@@ -187,10 +224,67 @@
         if (!this.dragging) {
           return;
         }
-        const left = this._targetRect.left + event.detail.dx;
-        const top = this._targetRect.top + event.detail.dy;
-        this._translate3d(left, top, 1, this._target);
-        const overItem = this._itemFromCoords(event.detail);
+
+        const containerRect = this.getBoundingClientRect();
+        const targetRect = this._target.getBoundingClientRect();
+        
+
+        // updates the target's position to the users finger position while dragging and possibly scrolling
+        const targetNewYPosition = (targetRect.top - this._containerPaddingAndMarginTop) - containerRect.top + event.detail.ddy;
+
+        const containerHeight = this.offsetHeight;
+        const viewportHeight = window.innerHeight;
+                       
+
+        // Dragging and scrolling is a very tricky too control, since the dragging could move horizontally and vetically and scroll (all at the same time!)
+        // we need to share a variable to control the X position of the transform of the dragging target.
+        this.__targetNewXPosition =  this._targetRect.left + event.detail.dx + event.detail.ddx; 
+
+        if (this.scroll) {
+
+          const targetRectRelativeToContainer = {
+            top: targetRect.top - this._containerPaddingAndMarginTop - containerRect.top,
+            bottom: targetRect.bottom - this._containerPaddingAndMarginBottom - containerRect.top
+          };
+
+          const UPWARDS = -1;
+          const DOWNWARDS = 1;
+
+          if (event.detail.ddy < 0) {
+            this._directionBuffer.push(UPWARDS);
+
+            if (this._currentScrollDirection === DOWNWARDS && this._dragDirectionPurposelyChanged(UPWARDS)) { // if we were just scrolling downwards, than interrupt the scroll
+              this._cancelRunningScroll();
+            }
+           
+            // if the top of the container is still not reached and there isn't a running scroll animation, we can still scroll up
+            if (containerRect.top < 0 && targetRect.top <= 0 && !this._rafID) {
+              this._scroll(-Math.abs(targetRectRelativeToContainer.top)); // ensure a negative value as argument
+            }
+            
+          } else if (event.detail.ddy > 0) { // sometimes ddy===0 while dragging, thats why there is an else if
+            this._directionBuffer.push(DOWNWARDS);
+
+            if (this._currentScrollDirection === UPWARDS && this._dragDirectionPurposelyChanged(DOWNWARDS)) { // if we were just scrolling upwards, than interrupt the scroll
+                this._cancelRunningScroll();
+            }
+
+            // if the bottom of the container is still not reached and there isn't a running scroll animation, we can still scroll down
+            if (containerRect.bottom > viewportHeight && targetRect.bottom >= viewportHeight && !this._rafID) {
+              this._scroll(Math.abs(containerHeight - targetRectRelativeToContainer.bottom)); // ensure a positive value as argument
+            }
+
+          }
+        }
+
+
+
+        if (!this._rafID) {
+          this._translate3d(this.__targetNewXPosition, targetNewYPosition, 1, this._target);
+        }
+
+
+        const overItem = this._itemFromCoords(event.detail, this.__targetNewXPosition, targetNewYPosition);
         if (overItem && overItem !== this._target) {
           const overItemIndex = this.items.indexOf(overItem);
           const targetIndex = this.items.indexOf(this._target);
@@ -206,6 +300,60 @@
         }
       }
 
+      _scroll(y) {
+        let num;
+        let pixelsLeftToScroll = Math.abs(y);
+        let pixelsToScrollNow = this.scrollingSpeed;
+
+        if (y < 0) {
+          num = -pixelsToScrollNow;
+          this._currentScrollDirection = -1; // up
+        } else if (y > 0) {
+          num = pixelsToScrollNow;
+          this._currentScrollDirection = 1; // down
+        }
+        
+        const containerRect = this.getBoundingClientRect();
+        const targetRect = this._target.getBoundingClientRect();
+
+        // updates the target's position to the screens top or bottom limit while scrolling
+        // const targetNewYPosition = (targetRect.top - parseFloat(this._computedStyle.borderTopWidth) - parseFloat(this._computedStyle.paddingTop)) - containerRect.top + num;
+        const targetNewYPosition = (targetRect.top - parseFloat(this._computedStyle.borderTopWidth) - parseFloat(this._computedStyle.paddingTop)) - containerRect.top + num;
+
+        this._translate3d(this.__targetNewXPosition, targetNewYPosition, 1, this._target);
+        window.scrollBy(0, num);
+        pixelsLeftToScroll -= pixelsToScrollNow;
+        
+        if (pixelsLeftToScroll > 0) {
+          this._rafID = requestAnimationFrame(() => {
+            this._scroll(this._currentScrollDirection * pixelsLeftToScroll);
+          });
+        } else {
+          this._rafID = 0;
+        }
+      }
+
+      _cancelRunningScroll() {
+        if (this._rafID) {
+          cancelAnimationFrame(this._rafID);
+          this._rafID = 0;
+        }
+      }
+
+      _dragDirectionPurposelyChanged(newDirection) {
+        // if the last X elements in the direction buffer are the same, than yes, direction has changed.
+        const lastElementsQty = 10; // since the track events are highly sensetive, after some testing this number looks good
+        const lastElements = this._directionBuffer.slice(-lastElementsQty);
+
+        for(let i=0; i<lastElementsQty; i++) {
+          if (lastElements[i] !== newDirection) {
+            return false;
+          }
+        }
+        this._directionBuffer = []; // reset it, we dont need the old values if the direction has changed
+        return true;
+      }
+
       // The track really ends
       _trackEnd(event) {
         if (!this.dragging) {
@@ -214,7 +362,9 @@
         const rect = this._rects[this.items.indexOf(this._target)];
         this._target.classList.remove('item--pressed');
         this._setDragging(false);
+        this._cancelRunningScroll();
         this._translate3d(rect.left, rect.top, 1, this._target);
+        this._animatingElementsToNaturalPosition = true;
       }
 
       _onTransitionEnd() {
@@ -246,6 +396,7 @@
           }
         }));
         this._target = null;
+        this._animatingElementsToNaturalPosition = false;
       }
 
       _onDragStart(event) {
@@ -276,18 +427,36 @@
         this._setItems(items);
       }
 
-      _itemFromCoords({x, y}) {
+      _itemFromCoords(c, x, y) {
         if (!this._rects) {return;}
         let match = null;
-        this._rects.forEach((rect, i) => {
-          if ((x >= rect.left) &&
-              (x <= rect.left + rect.width) &&
-              (y >= rect.top) &&
-              (y <= rect.top + rect.height)) {
+        const updatedTargetRect = Object.assign({}, this._targetRect, {top: y, left: x});
+
+        // The dragging target has to hover/overlap a certain percentage of its area over a sibling in order to be considered a match.
+        // This removes a flickering behavior while dragging the elements and gives a better prediction on what sibling the target is 
+        // actually moving into.
+        const areaPercentage = 0.5; 
+        
+        this._rects.forEach((rect, i) =>  {
+          if (this.items[i] !== this._targetRect && this._elementBeingOverlaped(rect, updatedTargetRect, areaPercentage)) {
             match = this.items[i];
           }
+
         });
         return match;
+      }
+
+      _elementBeingOverlaped(beneathElRect, topElRect, minPercentageAreaOfTopEl) {
+        const diffLeft = Math.abs(beneathElRect.left - topElRect.left);
+        const diffTop = Math.abs(beneathElRect.top - topElRect.top);
+
+        if (diffLeft > beneathElRect.width || diffTop > beneathElRect.height) {
+          return false;
+        }
+
+        const unionBoxArea = (beneathElRect.width - diffLeft) * (beneathElRect.height - diffTop);
+
+        return unionBoxArea >= minPercentageAreaOfTopEl * topElRect.width * topElRect.height;
       }
 
       _itemFromEvent(event) {
@@ -301,7 +470,15 @@
 
       _getItemsRects() {
         return this.items.map(item => {
-          return item.getBoundingClientRect();
+          // its pratically HTMLElement.getBoundingClientRect(), but instead of the viewport, its properties are relative to the positioned container.
+          return { 
+            left: item.offsetLeft, 
+            top: item.offsetTop,
+            right: item.offsetLeft + item.offsetWidth,
+            bottom: item.offsetTop + item.offsetHeight,
+            width: item.offsetWidth,
+            height: item.offsetHeight
+          };
         })
       }
 
