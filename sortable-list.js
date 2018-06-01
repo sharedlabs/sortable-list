@@ -9,14 +9,14 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import '@polymer/polymer/polymer-element.js';
+import { PolymerElement } from '@polymer/polymer/polymer-element.js';
 
-import '@polymer/polymer/lib/mixins/gesture-event-listeners.js';
+import { GestureEventListeners } from '@polymer/polymer/lib/mixins/gesture-event-listeners.js';
 import { html } from '@polymer/polymer/lib/utils/html-tag.js';
 import { idlePeriod } from '@polymer/polymer/lib/utils/async.js';
 import { addListener, removeListener } from '@polymer/polymer/lib/utils/gestures.js';
 
-class SortableList extends Polymer.GestureEventListeners(Polymer.Element) {
+class SortableList extends GestureEventListeners(PolymerElement) {
   static get template() {
     return html`
     <style>
