@@ -6,8 +6,8 @@
 
     <title>sortable-list demo</title>
 
-    <link rel="import" href="../sortable-list.html">
-    <link rel="import" href="../../polymer/lib/elements/dom-repeat.html">
+    <script type="module" src="../sortable-list.js"></script>
+    <script type="module" src="../../../@polymer/polymer/lib/elements/dom-repeat.js"></script>
 
     <style>
       body {
@@ -52,17 +52,23 @@
         "https://cdn2.iconfinder.com/data/icons/cutecritters/t9dog2_trans.png",
         "https://cdn2.iconfinder.com/data/icons/cutecritters/t9tuqui_trans.png",
         "https://cdn2.iconfinder.com/data/icons/cutecritters/t9panda_trans.png",
-        "https://cdn2.iconfinder.com/data/icons/cutecritters/t9elephant_trans.png",
-        "https://cdn2.iconfinder.com/data/icons/cutecritters/t9lion_trans.png",
-        "https://cdn2.iconfinder.com/data/icons/cutecritters/t9foxy_trans.png",
-        "https://cdn2.iconfinder.com/data/icons/cutecritters/t9kitty_trans.png",
-        "https://cdn2.iconfinder.com/data/icons/cutecritters/t9ratty_trans.png",
-        "https://cdn2.iconfinder.com/data/icons/cutecritters/t9froggy_trans.png",
-        "https://cdn2.iconfinder.com/data/icons/cutecritters/t9ducky_trans.png",
-        "https://cdn2.iconfinder.com/data/icons/cutecritters/t9batty_trans.png",
-        "https://cdn2.iconfinder.com/data/icons/cutecritters/t9penguino_trans.png" 
-      ];
-    </script>
+    <script type="module">
+import '../sortable-list.js';
+import '../../../@polymer/polymer/lib/elements/dom-repeat.js';
+const domRepeat = document.querySelector('#domRepeat');
 
-  </body>
-</html>
+domRepeat.items = [
+  "https://cdn2.iconfinder.com/data/icons/cutecritters/t9dog2_trans.png",
+  "https://cdn2.iconfinder.com/data/icons/cutecritters/t9tuqui_trans.png",
+  "https://cdn2.iconfinder.com/data/icons/cutecritters/t9panda_trans.png",
+  "https://cdn2.iconfinder.com/data/icons/cutecritters/t9elephant_trans.png",
+  "https://cdn2.iconfinder.com/data/icons/cutecritters/t9lion_trans.png",
+  "https://cdn2.iconfinder.com/data/icons/cutecritters/t9foxy_trans.png",
+  "https://cdn2.iconfinder.com/data/icons/cutecritters/t9kitty_trans.png",
+  "https://cdn2.iconfinder.com/data/icons/cutecritters/t9ratty_trans.png",
+  "https://cdn2.iconfinder.com/data/icons/cutecritters/t9froggy_trans.png",
+  "https://cdn2.iconfinder.com/data/icons/cutecritters/t9ducky_trans.png",
+  "https://cdn2.iconfinder.com/data/icons/cutecritters/t9batty_trans.png",
+  "https://cdn2.iconfinder.com/data/icons/cutecritters/t9penguino_trans.png" 
+];
+</script>
