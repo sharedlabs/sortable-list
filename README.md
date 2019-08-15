@@ -17,7 +17,7 @@ _[Demo and API docs](https://www.webcomponents.org/element/sharedlabs/sortable-l
 </sortable-list>
 
 ...
-onSortFinish(event) {
+_onSortFinish(event) {
   const sortedItem = event.detail.target;
 }
 ```
