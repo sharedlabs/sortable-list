@@ -5,7 +5,8 @@
   ],
   "main": "sortable-list.html",
   "dependencies": {
-    "polymer": "Polymer/polymer#^2.0.0"
+    "polymer": "Polymer/polymer#^2.0.0",
+    "shadycss": "webcomponents/shadycss#^1.0.1"
   },
   "devDependencies": {
     "web-component-tester": "v6.0.0"
