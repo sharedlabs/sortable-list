@@ -1,0 +1,19 @@
+{
+  "name": "@polymer/sortable-list",
+  "version": "1.0.0",
+  "resolutions": {
+    "inherits": "2.0.3",
+    "samsam": "1.1.3",
+    "supports-color": "3.1.2",
+    "type-detect": "1.0.0",
+    "@webcomponents/webcomponentsjs": "2.0.0-beta.2"
+  },
+  "main": "sortable-list.js",
+  "author": "Pedro Garcia <pdgago@gmail.com>",
+  "dependencies": {
+    "@polymer/polymer": "^3.0.0"
+  },
+  "devDependencies": {
+    "wct-browser-legacy": "^0.0.1-pre.11"
+  }
+}
