@@ -13,6 +13,8 @@
     <style>
       :host {
         display: inline-block;
+        position: relative;
+        transform: rotateZ(0);
       }
 
       ::slotted(*) {
@@ -106,6 +108,7 @@
         this._target = null;
         this._targetRect = null;
         this._rects = null;
+        this._parentRect = null;
         this._onTrack = this._onTrack.bind(this);
         this._onDragStart = this._onDragStart.bind(this);
         this._onTransitionEnd = this._onTransitionEnd.bind(this);
@@ -159,12 +162,12 @@
         }
         event.stopPropagation();
         this._rects = this._getItemsRects();
+        const rect = this._parentRect = this.getBoundingClientRect();
         this._targetRect = this._rects[this.items.indexOf(this._target)];
         this._target.classList.add('item--dragged', 'item--pressed');
         if ('vibrate' in navigator) {
           navigator.vibrate(30);
         }
-        const rect = this.getBoundingClientRect();
         this.style.height = rect.height + 'px';
         this.style.width = rect.width + 'px';
         this.items.forEach((item, idx) => {
@@ -237,6 +240,7 @@
         this.style.height = '';
         this._target.classList.remove('item--dragged');
         this._rects = null;
+        this._parentRect = null;
         this._targetRect = null;
         this._updateItems();
         this.dispatchEvent(new CustomEvent('sort-finish', {
@@ -337,7 +341,8 @@
       }
 
       _translate3d(x, y, z, el) {
-        el.style.transform = `translate3d(${x}px, ${y}px, ${z}px)`;
+        const parentRect = this._parentRect;
+        el.style.transform = `translate3d(${x - parentRect.left}px, ${y - parentRect.top}px, ${z}px)`;
       }
 
     }
